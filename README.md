@@ -1,6 +1,6 @@
 # Astro chat
 
-Realtime chat based on HTTP streaming and `fetch()`, built with Astro
+Realtime chat with server-side events using `fetch()`, built with Astro
 
 ```
 pnpm i

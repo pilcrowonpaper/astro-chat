@@ -4,7 +4,6 @@ import { encodeBase64 } from "oslo/encoding";
 export async function GET() {
   const textEncoder = new TextEncoder();
   let unsubscribe: () => void;
-
   const stream = new ReadableStream({
     start(controller) {
       unsubscribe = addMessageListener((message) => {
@@ -14,7 +13,8 @@ export async function GET() {
           timestamp: Math.floor(message.date.getTime() / 1000),
         });
         body = encodeBase64(new TextEncoder().encode(body));
-        controller.enqueue(textEncoder.encode(body + "\n"));
+        controller.enqueue(textEncoder.encode("event: message\n"));
+        controller.enqueue(textEncoder.encode("data: " + body + "\n\n"));
       });
     },
     cancel() {
@@ -24,7 +24,7 @@ export async function GET() {
   return new Response(stream, {
     headers: {
       "X-Content-Type-Options": "nosniff",
-      "Content-Type": "application/json; charset=utf-8",
+      "Content-Type": "text/event-stream; charset=utf-8",
       "Transfer-Encoding": "chunked",
     },
   });

@@ -76,20 +76,36 @@
     const reader = response.body.getReader();
 
     let result = await reader.read();
+    let lastChunk = "";
     while (!result.done) {
-      const value = new TextDecoder().decode(result.value);
-      for (const line of value.split("\n")) {
-        if (!line) {
-			continue
-		};
-        const messageJSON: MessageJSON = JSON.parse(
-          new TextDecoder().decode(decodeBase64(line))
-        );
-        renderMessage({
-          username: messageJSON.username,
-          body: messageJSON.body,
-          date: new Date(messageJSON.timestamp * 1000),
-        });
+      const value = lastChunk + new TextDecoder().decode(result.value);
+      const chunks = value.split("\n\n");
+      const completedGroup = chunks.slice(0, -1);
+      lastChunk = chunks.at(-1) ?? "";
+      for (const chunk of completedGroup) {
+        const lines = chunk.split("\n");
+        const maybeEventLine = lines.at(0);
+        let event: string | null = null;
+        if (maybeEventLine && maybeEventLine.startsWith("event: ")) {
+          event = maybeEventLine.replace("event: ", "");
+          lines.shift();
+        }
+        if (event !== "message") {
+          throw new Error("Event not defined");
+        }
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) {
+            throw new Error(`Expected data, got:\n${line}`);
+          }
+          const messageJSON: MessageJSON = JSON.parse(
+            new TextDecoder().decode(decodeBase64(line.replace("data: ", "")))
+          );
+          renderMessage({
+            username: messageJSON.username,
+            body: messageJSON.body,
+            date: new Date(messageJSON.timestamp * 1000),
+          });
+        }
       }
       result = await reader.read();
     }
