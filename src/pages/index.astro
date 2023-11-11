@@ -1,0 +1,103 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Realtime chat</title>
+  </head>
+  <body class="max-w-md mx-auto w-full py-20">
+    <h1 class="text-2xl font-semibold">Realtime chat with Fetch API</h1>
+    <div class="border-b py-4">
+      <form method="post" action="/api/message" id="message-form">
+        <label for="message-username">Username</label><br />
+        <input
+          id="message-username"
+          name="username"
+          class="w-full border p-1"
+        />
+        <label for="message-value" class="mt-2">Message</label><br />
+        <input id="message-value" name="body" class="w-full border p-1" />
+        <button class="px-4 bg-black text-white mt-2">Send</button>
+      </form>
+    </div>
+    <div id="messages" class="flex flex-col gap-y-4 pt-8"></div>
+  </body>
+</html>
+
+<script>
+  import { decodeBase64 } from "oslo/encoding";
+  import type { Message } from "../lib/message";
+
+  listen();
+
+  const form = document.getElementById("message-form") as HTMLFormElement;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const username = formData.get("username");
+    const messageBody = formData.get("body");
+    if (!username || typeof username !== "string") {
+      return;
+    }
+    if (!messageBody || typeof messageBody !== "string") {
+      return;
+    }
+    (document.getElementById("message-value") as HTMLInputElement).value = "";
+    await fetch("/api/message", {
+      method: "POST",
+      body: JSON.stringify({
+        username,
+        body: messageBody,
+      }),
+    });
+  });
+
+  function renderMessage(message: Message) {
+    const messageValueParagraph = document.createElement("p");
+    messageValueParagraph.innerText = `${message.username}:${message.body}`;
+    const div = document.createElement("div");
+    div.innerHTML = `
+	<div class="flex gap-x-2 mb-1">
+		<p class="font-medium">${message.username}</p>
+		<p class="text-zinc-400">Send at ${message.date.toLocaleString()}</p>
+	</div>
+	<p>${message.body}</p>
+	`;
+    document.getElementById("messages")!.appendChild(div);
+  }
+
+  async function listen() {
+    const response = await fetch("/api/messages");
+    if (!response.body) {
+      throw new Error("Invalid response body");
+    }
+    const reader = response.body.getReader();
+
+    let result = await reader.read();
+    while (!result.done) {
+      const value = new TextDecoder().decode(result.value);
+      for (const line of value.split("\n")) {
+        if (!line) {
+			continue
+		};
+        const messageJSON: MessageJSON = JSON.parse(
+          new TextDecoder().decode(decodeBase64(line))
+        );
+        renderMessage({
+          username: messageJSON.username,
+          body: messageJSON.body,
+          date: new Date(messageJSON.timestamp * 1000),
+        });
+      }
+      result = await reader.read();
+    }
+  }
+
+  interface MessageJSON {
+    username: string;
+    timestamp: number;
+    body: string;
+  }
+</script>
