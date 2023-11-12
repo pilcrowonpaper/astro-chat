@@ -73,6 +73,7 @@
     if (!response.body) {
       throw new Error("Invalid response body");
     }
+ 
     const reader = response.body.getReader();
 
     let result = await reader.read();
@@ -110,7 +111,7 @@
       result = await reader.read();
     }
   }
-
+  
   interface MessageJSON {
     username: string;
     timestamp: number;

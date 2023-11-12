@@ -6,6 +6,7 @@ export async function GET() {
   let unsubscribe: () => void;
   const stream = new ReadableStream({
     start(controller) {
+      controller.enqueue(textEncoder.encode("\n"));
       unsubscribe = addMessageListener((message) => {
         let body = JSON.stringify({
           username: message.username,
@@ -18,6 +19,7 @@ export async function GET() {
       });
     },
     cancel() {
+      console.log("cancelled");
       unsubscribe();
     },
   });
